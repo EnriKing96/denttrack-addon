@@ -121,15 +121,7 @@ def run_server():
     local_ip = get_local_ip()
 
     server_address = ('', PORT)
-
     httpd = HTTPServer(server_address, DentTrackHandler)
-    
-    except OSError:
-        # Se 8080 è occupata, prova 8081
-        global PORT
-        PORT = 8081
-        server_address = ('', PORT)
-        httpd = HTTPServer(server_address, DentTrackHandler)
 
     print("=" * 64)
     print("       DENTTRACK - SERVER DI SINCRONIZZAZIONE RASPBERRY PI      ")
@@ -140,7 +132,6 @@ def run_server():
     print("=" * 64)
     print(f" File archivio centralizzato: {DATA_FILE}")
     print(" Tutti i dispositivi (PC e Telefono) si sincronizzano su questo file!")
-    print(" Premi [Ctrl+C] per terminare il server.")
     print("=" * 64)
 
     try:
