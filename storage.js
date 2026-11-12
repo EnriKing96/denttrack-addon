@@ -461,25 +461,65 @@ const Storage = {
   // ==========================================
   // --- Central Server Synchronization ---
   // ==========================================
+  
   isServerConnected: false,
   isSyncing: false,
   lastSyncTime: null,
   syncDebounceTimer: null,
+  syncRetryTimer: null,
+  syncRevision: 0,
+  syncPendingKey: 'denttrack_sync_pending',
+
+  getApiUrl() {
+    const basePath = window.location.pathname
+      .replace(/\/index\.html.*$/, '')
+      .replace(/\/$/, '');
+
+    return basePath + '/api/data';
+  },
+
+  hasPendingChanges() {
+    return localStorage.getItem(this.syncPendingKey) === 'true';
+  },
 
   async initServerSync() {
     if (!window.location.protocol.startsWith('http')) {
-      this.updateSyncUI('offline', 'Memoria locale (Offline)');
+      this.updateSyncUI('offline', 'Offline');
       return;
     }
 
-    try {
-      this.updateSyncUI('syncing', 'Controllo server...');
-      const apiUrl = window.location.pathname.replace(/\/index\.html.*$/, '').replace(/\/$/, '') + '/api/data';
-      const res = await fetch(apiUrl, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+    window.addEventListener('online', () => {
+      clearTimeout(this.syncRetryTimer);
+      this.initServerSync();
+    });
 
-      const serverData = await res.json();
+    window.addEventListener('offline', () => {
+      this.isServerConnected = false;
+      this.updateSyncUI('offline', 'Offline');
+    });
+
+    try {
+      this.updateSyncUI('syncing', 'Connessione...');
+
+      const response = await fetch(this.getApiUrl(), {
+        method: 'GET',
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+      }
+
+      const serverData = await response.json();
+
       this.isServerConnected = true;
+
+      // Se esistono modifiche locali non ancora inviate,
+      // hanno la precedenza sui dati scaricati.
+      if (this.hasPendingChanges()) {
+        await this.syncToServer();
+        return;
+      }
 
       const hasServerContent = serverData && (
         (Array.isArray(serverData.shifts) && serverData.shifts.length > 0) ||
@@ -487,77 +527,180 @@ const Storage = {
         (serverData.profile && Object.keys(serverData.profile).length > 0)
       );
 
-      const localClinics = this.getClinics();
-      const localShifts = this.getShifts();
-      const hasLocalContent = localClinics.length > 0 || localShifts.length > 0;
+      const hasLocalContent =
+        this.getClinics().length > 0 ||
+        this.getShifts().length > 0;
 
       if (hasServerContent) {
-        // Il server centrale ha dati: li scarichiamo e allineiamo la memoria locale
-        if (serverData.profile) localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(serverData.profile));
-        if (Array.isArray(serverData.clinics)) localStorage.setItem(STORAGE_KEYS.CLINICS, JSON.stringify(serverData.clinics));
-        if (Array.isArray(serverData.shifts)) localStorage.setItem(STORAGE_KEYS.SHIFTS, JSON.stringify(serverData.shifts));
+        if (serverData.profile) {
+          localStorage.setItem(
+            STORAGE_KEYS.PROFILE,
+            JSON.stringify(serverData.profile)
+          );
+        }
+
+        if (Array.isArray(serverData.clinics)) {
+          localStorage.setItem(
+            STORAGE_KEYS.CLINICS,
+            JSON.stringify(serverData.clinics)
+          );
+        }
+
+        if (Array.isArray(serverData.shifts)) {
+          localStorage.setItem(
+            STORAGE_KEYS.SHIFTS,
+            JSON.stringify(serverData.shifts)
+          );
+        }
+
         this.lastSyncTime = new Date();
-        this.updateSyncUI('synced', `Sincronizzato (${this.formatTime(this.lastSyncTime)})`);
-        if (window.App && App.refreshAll) App.refreshAll();
+        this.updateSyncUI('synced', 'Online');
+
+        if (window.App && App.refreshAll) {
+          App.refreshAll();
+        }
+
       } else if (hasLocalContent) {
-        // Il server centrale è appena partito o vuoto: carichiamo i dati locali attuali
-        await this.syncToServer(false);
+        // Server vuoto: invia i dati già presenti sul dispositivo.
+        localStorage.setItem(this.syncPendingKey, 'true');
+        this.syncRevision++;
+        await this.syncToServer();
+
       } else {
-        this.updateSyncUI('synced', 'Server collegato');
+        this.updateSyncUI('synced', 'Online');
       }
-    } catch (e) {
-      console.log('Server sync non disponibile, uso storage locale:', e.message);
+
+    } catch (error) {
+      console.warn('Connessione server non disponibile:', error);
+
       this.isServerConnected = false;
-      this.updateSyncUI('offline', 'Memoria locale');
+      this.updateSyncUI('offline', 'Offline');
+
+      this.scheduleRetry();
     }
   },
 
   scheduleServerSync() {
     if (!window.location.protocol.startsWith('http')) return;
+
+    // Segna immediatamente i dati come da inviare.
+    localStorage.setItem(this.syncPendingKey, 'true');
+
+    this.syncRevision++;
+
     clearTimeout(this.syncDebounceTimer);
+
+    this.updateSyncUI('syncing', 'Salvataggio...');
+
+    // Accorpa le modifiche ravvicinate.
     this.syncDebounceTimer = setTimeout(() => {
       this.syncToServer();
-    }, 400);
+    }, 500);
+  },
+
+  scheduleRetry() {
+    clearTimeout(this.syncRetryTimer);
+
+    this.syncRetryTimer = setTimeout(() => {
+      if (this.hasPendingChanges()) {
+        this.syncToServer();
+      } else {
+        this.initServerSync();
+      }
+    }, 5000);
   },
 
   async syncToServer(refreshAfter = false) {
     if (!window.location.protocol.startsWith('http')) return;
-    this.isSyncing = true;
-    this.updateSyncUI('syncing', 'Salvataggio sul server...');
 
-    const payload = {
-      version: '1.0',
-      updatedAt: new Date().toISOString(),
-      profile: this.getProfile(),
-      clinics: this.getClinics(),
-      shifts: this.getShifts()
-    };
+    if (this.isSyncing) {
+      return;
+    }
+
+    clearTimeout(this.syncRetryTimer);
+
+    this.isSyncing = true;
 
     try {
-      const apiUrl = window.location.pathname.replace(/\/index\.html.*$/, '').replace(/\/$/, '') + '/api/data';
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      this.isServerConnected = true;
-      this.lastSyncTime = new Date();
-      this.updateSyncUI('synced', `Sincronizzato (${this.formatTime(this.lastSyncTime)})`);
-    } catch (e) {
-      console.warn('Errore salvataggio server:', e);
-      this.updateSyncUI('offline', 'Salvato in locale (Server non raggiungibile)');
-    } finally {
-      this.isSyncing = false;
+      while (this.hasPendingChanges()) {
+
+        const currentRevision = this.syncRevision;
+
+        this.updateSyncUI('syncing', 'Salvataggio...');
+
+        const payload = {
+          version: '1.0',
+          updatedAt: new Date().toISOString(),
+          profile: this.getProfile(),
+          clinics: this.getClinics(),
+          shifts: this.getShifts()
+        };
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        let response;
+
+        try {
+          response = await fetch(this.getApiUrl(), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8'
+            },
+            body: JSON.stringify(payload),
+            cache: 'no-store',
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error('Il server non ha confermato il salvataggio');
+        }
+
+        this.isServerConnected = true;
+        this.lastSyncTime = new Date();
+
+        // Rimuove il flag solo se nel frattempo non ci sono
+        // state altre modifiche.
+        if (currentRevision === this.syncRevision) {
+          localStorage.removeItem(this.syncPendingKey);
+        }
+      }
+
+      this.updateSyncUI('synced', 'Online');
+
       if (refreshAfter && window.App && App.refreshAll) {
         App.refreshAll();
       }
+
+    } catch (error) {
+      console.warn('Errore sincronizzazione:', error);
+
+      this.isServerConnected = false;
+      this.updateSyncUI('offline', 'Offline');
+
+      this.scheduleRetry();
+
+    } finally {
+      this.isSyncing = false;
     }
   },
 
   formatTime(date) {
     if (!date) return '';
-    return date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+    return date.toLocaleTimeString('it-IT', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   },
 
   updateSyncUI(status, label) {
@@ -565,8 +708,9 @@ const Storage = {
     const badgeEl = document.getElementById('profile-sync-badge');
 
     let icon = '🟢';
+
     if (status === 'syncing') icon = '🔄';
-    if (status === 'offline') icon = '💾';
+    if (status === 'offline') icon = '🟠';
 
     if (el) {
       el.className = `sync-status-badge sync-${status}`;
