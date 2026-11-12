@@ -1,7 +1,7 @@
 name: "DentTrack"
-version: "1.0.0"
+version: "1.0.1"
 slug: "denttrack"
-description: "Gestionale turni, pazienti e compensi per Igienista Dentale con sincronizzazione automatica"
+description: "Gestionale turni, pazienti e compensi per Igienista Dentale"
 url: "https://github.com"
 arch:
   - aarch64
