@@ -30,7 +30,7 @@ const App = {
   registerServiceWorker() {
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./assets/sw.js').then(
+        navigator.serviceWorker.register('./sw.js').then(
           (reg) => console.log('ServiceWorker registered with scope:', reg.scope),
           (err) => console.log('ServiceWorker registration failed:', err)
         );
