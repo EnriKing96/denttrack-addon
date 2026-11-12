@@ -461,242 +461,294 @@ const Storage = {
   // ==========================================
   // --- Central Server Synchronization ---
   // ==========================================
-  
-  isServerConnected: false,
+isServerConnected: false,
   isSyncing: false,
   lastSyncTime: null,
   syncDebounceTimer: null,
   syncRetryTimer: null,
-  syncRevision: 0,
+  syncPollTimer: null,
   syncPendingKey: 'denttrack_sync_pending',
+  syncRevisionKey: 'denttrack_server_revision',
+  syncConflictKey: 'denttrack_sync_conflict',
+  syncListenersBound: false,
 
   getApiUrl() {
     const basePath = window.location.pathname
       .replace(/\/index\.html.*$/, '')
       .replace(/\/$/, '');
-
-    return basePath + '/api/data';
+    return (basePath || '') + '/api/data';
   },
 
   hasPendingChanges() {
-    return localStorage.getItem(this.syncPendingKey) === 'true';
+    try {
+      return localStorage.getItem(this.syncPendingKey) === 'true';
+    } catch (e) {
+      return false;
+    }
+  },
+
+  setPendingChanges(value) {
+    try {
+      if (value) localStorage.setItem(this.syncPendingKey, 'true');
+      else localStorage.removeItem(this.syncPendingKey);
+    } catch (e) {
+      console.warn('DentTrack: impossibile aggiornare lo stato pending', e);
+    }
+  },
+
+  getServerRevision() {
+    try {
+      return parseInt(localStorage.getItem(this.syncRevisionKey) || '0', 10) || 0;
+    } catch (e) {
+      return 0;
+    }
+  },
+
+  setServerRevision(revision) {
+    try {
+      localStorage.setItem(this.syncRevisionKey, String(Math.max(0, Number(revision) || 0)));
+    } catch (e) {
+      console.warn('DentTrack: impossibile salvare la revisione', e);
+    }
+  },
+
+  getLocalSnapshot() {
+    return {
+      version: '1.0',
+      updatedAt: new Date().toISOString(),
+      profile: this.getProfile(),
+      clinics: this.getClinics(),
+      shifts: this.getShifts()
+    };
+  },
+
+  applyServerSnapshot(serverData) {
+    if (!serverData || typeof serverData !== 'object') return;
+
+    if (serverData.profile && typeof serverData.profile === 'object') {
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(serverData.profile));
+    }
+    if (Array.isArray(serverData.clinics)) {
+      localStorage.setItem(STORAGE_KEYS.CLINICS, JSON.stringify(serverData.clinics));
+    }
+    if (Array.isArray(serverData.shifts)) {
+      localStorage.setItem(STORAGE_KEYS.SHIFTS, JSON.stringify(serverData.shifts));
+    }
+
+    if (Number.isInteger(serverData._syncRevision)) {
+      this.setServerRevision(serverData._syncRevision);
+    }
+
+    this.lastSyncTime = new Date();
+    this.setPendingChanges(false);
+
+    if (window.App && typeof App.refreshAll === 'function') {
+      App.refreshAll();
+    }
+  },
+
+  async fetchServerSnapshot() {
+    const response = await fetch(this.getApiUrl(), {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+
+    const data = await response.json();
+    if (!data || typeof data !== 'object') throw new Error('Risposta server non valida');
+    return data;
   },
 
   async initServerSync() {
     if (!window.location.protocol.startsWith('http')) {
-      this.updateSyncUI('offline', 'Offline');
+      this.updateSyncUI('offline', 'Solo locale');
       return;
     }
 
-    window.addEventListener('online', () => {
-      clearTimeout(this.syncRetryTimer);
-      this.initServerSync();
-    });
-
-    window.addEventListener('offline', () => {
-      this.isServerConnected = false;
-      this.updateSyncUI('offline', 'Offline');
-    });
+    if (!this.syncListenersBound) {
+      this.syncListenersBound = true;
+      window.addEventListener('online', () => {
+        this.initServerSync();
+      });
+      window.addEventListener('offline', () => {
+        this.isServerConnected = false;
+        this.updateSyncUI('offline', 'Offline — dati sul dispositivo');
+      });
+    }
 
     try {
       this.updateSyncUI('syncing', 'Connessione...');
-
-      const response = await fetch(this.getApiUrl(), {
-        method: 'GET',
-        cache: 'no-store'
-      });
-
-      if (!response.ok) {
-        throw new Error('HTTP ' + response.status);
-      }
-
-      const serverData = await response.json();
+      const serverData = await this.fetchServerSnapshot();
+      const serverRevision = Number.isInteger(serverData._syncRevision)
+        ? serverData._syncRevision
+        : 0;
 
       this.isServerConnected = true;
-
-      // Se esistono modifiche locali non ancora inviate,
-      // hanno la precedenza sui dati scaricati.
-      if (this.hasPendingChanges()) {
-        await this.syncToServer();
-        return;
-      }
-
-      const hasServerContent = serverData && (
-        (Array.isArray(serverData.shifts) && serverData.shifts.length > 0) ||
+      const serverHasData =
         (Array.isArray(serverData.clinics) && serverData.clinics.length > 0) ||
-        (serverData.profile && Object.keys(serverData.profile).length > 0)
-      );
+        (Array.isArray(serverData.shifts) && serverData.shifts.length > 0) ||
+        (serverData.profile && Object.keys(serverData.profile).length > 0);
 
-      const hasLocalContent =
+      const localHasData =
         this.getClinics().length > 0 ||
-        this.getShifts().length > 0;
+        this.getShifts().length > 0 ||
+        Object.keys(this.getProfile() || {}).length > 0;
 
-      if (hasServerContent) {
-        if (serverData.profile) {
-          localStorage.setItem(
-            STORAGE_KEYS.PROFILE,
-            JSON.stringify(serverData.profile)
-          );
-        }
-
-        if (Array.isArray(serverData.clinics)) {
-          localStorage.setItem(
-            STORAGE_KEYS.CLINICS,
-            JSON.stringify(serverData.clinics)
-          );
-        }
-
-        if (Array.isArray(serverData.shifts)) {
-          localStorage.setItem(
-            STORAGE_KEYS.SHIFTS,
-            JSON.stringify(serverData.shifts)
-          );
-        }
-
-        this.lastSyncTime = new Date();
-        this.updateSyncUI('synced', 'Online');
-
-        if (window.App && App.refreshAll) {
-          App.refreshAll();
-        }
-
-      } else if (hasLocalContent) {
-        // Server vuoto: invia i dati già presenti sul dispositivo.
-        localStorage.setItem(this.syncPendingKey, 'true');
-        this.syncRevision++;
+      if (this.hasPendingChanges()) {
+        // Non scaricare sopra modifiche locali non ancora confermate.
         await this.syncToServer();
-
+      } else if (serverHasData) {
+        this.applyServerSnapshot(serverData);
+        this.updateSyncUI('online', 'Online');
+      } else if (localHasData) {
+        this.setServerRevision(serverRevision);
+        this.setPendingChanges(true);
+        await this.syncToServer();
       } else {
-        this.updateSyncUI('synced', 'Online');
+        this.setServerRevision(serverRevision);
+        this.updateSyncUI('online', 'Online');
       }
 
+      this.startServerPolling();
+      this.startRetryLoop();
     } catch (error) {
-      console.warn('Connessione server non disponibile:', error);
-
+      console.warn('DentTrack: server non raggiungibile:', error.message);
       this.isServerConnected = false;
-      this.updateSyncUI('offline', 'Offline');
-
-      this.scheduleRetry();
+      this.updateSyncUI('offline', 'Offline — dati sul dispositivo');
+      this.startRetryLoop();
     }
   },
 
   scheduleServerSync() {
     if (!window.location.protocol.startsWith('http')) return;
 
-    // Segna immediatamente i dati come da inviare.
-    localStorage.setItem(this.syncPendingKey, 'true');
-
-    this.syncRevision++;
-
+    this.setPendingChanges(true);
     clearTimeout(this.syncDebounceTimer);
+    this.updateSyncUI(
+      this.isServerConnected ? 'syncing' : 'offline',
+      this.isServerConnected ? 'Salvataggio...' : 'Salvato sul dispositivo'
+    );
 
-    this.updateSyncUI('syncing', 'Salvataggio...');
-
-    // Accorpa le modifiche ravvicinate.
     this.syncDebounceTimer = setTimeout(() => {
       this.syncToServer();
     }, 500);
   },
 
-  scheduleRetry() {
-    clearTimeout(this.syncRetryTimer);
-
-    this.syncRetryTimer = setTimeout(() => {
-      if (this.hasPendingChanges()) {
-        this.syncToServer();
-      } else {
-        this.initServerSync();
-      }
-    }, 5000);
-  },
-
-  async syncToServer(refreshAfter = false) {
+  async syncToServer() {
     if (!window.location.protocol.startsWith('http')) return;
-
-    if (this.isSyncing) {
-      return;
-    }
-
-    clearTimeout(this.syncRetryTimer);
+    if (this.isSyncing) return;
+    if (!this.hasPendingChanges()) return;
 
     this.isSyncing = true;
+    this.updateSyncUI('syncing', 'Sincronizzazione...');
+
+    const payload = {
+      baseRevision: this.getServerRevision(),
+      data: this.getLocalSnapshot()
+    };
 
     try {
-      while (this.hasPendingChanges()) {
+      const response = await fetch(this.getApiUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        cache: 'no-store',
+        body: JSON.stringify(payload)
+      });
 
-        const currentRevision = this.syncRevision;
+      const result = await response.json();
 
-        this.updateSyncUI('syncing', 'Salvataggio...');
-
-        const payload = {
-          version: '1.0',
-          updatedAt: new Date().toISOString(),
-          profile: this.getProfile(),
-          clinics: this.getClinics(),
-          shifts: this.getShifts()
-        };
-
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
-        let response;
-
+      if (response.status === 409) {
+        // Conflitto: il server è cambiato dopo l'ultimo download.
+        // Conserviamo la copia locale e anche quella remota, senza sovrascriverle.
         try {
-          response = await fetch(this.getApiUrl(), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json; charset=utf-8'
-            },
-            body: JSON.stringify(payload),
-            cache: 'no-store',
-            signal: controller.signal
-          });
-        } finally {
-          clearTimeout(timeout);
-        }
-
-        if (!response.ok) {
-          throw new Error('HTTP ' + response.status);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error('Il server non ha confermato il salvataggio');
+          localStorage.setItem(this.syncConflictKey, JSON.stringify({
+            detectedAt: new Date().toISOString(),
+            local: payload.data,
+            remote: result,
+            localBaseRevision: payload.baseRevision,
+            remoteRevision: result._syncRevision
+          }));
+        } catch (storageError) {
+          console.error('DentTrack: impossibile salvare la copia di conflitto', storageError);
         }
 
         this.isServerConnected = true;
-        this.lastSyncTime = new Date();
-
-        // Rimuove il flag solo se nel frattempo non ci sono
-        // state altre modifiche.
-        if (currentRevision === this.syncRevision) {
-          localStorage.removeItem(this.syncPendingKey);
-        }
+        this.updateSyncUI('conflict', 'Conflitto — dati conservati');
+        console.warn(
+          'DentTrack: rilevata modifica concorrente. Le modifiche locali sono rimaste sul dispositivo; copia server salvata in denttrack_sync_conflict.'
+        );
+        return;
       }
 
-      this.updateSyncUI('synced', 'Online');
-
-      if (refreshAfter && window.App && App.refreshAll) {
-        App.refreshAll();
+      if (response.status === 428) {
+        throw new Error(result.error || 'Server da aggiornare');
+      }
+      if (!response.ok || result.success !== true) {
+        throw new Error(result.error || ('HTTP ' + response.status));
       }
 
+      this.isServerConnected = true;
+      this.setServerRevision(result.revision);
+      this.setPendingChanges(false);
+      this.lastSyncTime = new Date();
+      this.updateSyncUI('online', 'Online');
     } catch (error) {
-      console.warn('Errore sincronizzazione:', error);
-
+      console.warn('DentTrack: sincronizzazione non riuscita:', error);
       this.isServerConnected = false;
-      this.updateSyncUI('offline', 'Offline');
-
-      this.scheduleRetry();
-
+      this.updateSyncUI('offline', 'Offline — modifiche in coda');
     } finally {
       this.isSyncing = false;
     }
   },
 
+  startServerPolling() {
+    if (this.syncPollTimer) return;
+
+    this.syncPollTimer = setInterval(async () => {
+      if (this.isSyncing || this.hasPendingChanges() || !navigator.onLine) return;
+
+      try {
+        const serverData = await this.fetchServerSnapshot();
+        const remoteRevision = Number.isInteger(serverData._syncRevision)
+          ? serverData._syncRevision
+          : 0;
+        const localRevision = this.getServerRevision();
+
+        this.isServerConnected = true;
+
+        if (remoteRevision > localRevision) {
+          // Scarica solo se questo dispositivo non ha modifiche locali in coda.
+          this.applyServerSnapshot(serverData);
+        }
+
+        if (!this.hasPendingChanges()) {
+          this.updateSyncUI('online', 'Online');
+        }
+      } catch (error) {
+        this.isServerConnected = false;
+        this.updateSyncUI('offline', 'Offline — dati sul dispositivo');
+      }
+    }, 5000);
+  },
+
+  startRetryLoop() {
+    if (this.syncRetryTimer) return;
+
+    this.syncRetryTimer = setInterval(() => {
+      if (!navigator.onLine || this.isSyncing) return;
+
+      if (this.hasPendingChanges()) {
+        this.syncToServer();
+      } else if (!this.isServerConnected) {
+        this.initServerSync();
+      }
+    }, 5000);
+  },
+
   formatTime(date) {
     if (!date) return '';
-
     return date.toLocaleTimeString('it-IT', {
       hour: '2-digit',
       minute: '2-digit'
@@ -708,9 +760,9 @@ const Storage = {
     const badgeEl = document.getElementById('profile-sync-badge');
 
     let icon = '🟢';
-
     if (status === 'syncing') icon = '🔄';
-    if (status === 'offline') icon = '🟠';
+    if (status === 'offline') icon = '📴';
+    if (status === 'conflict') icon = '⚠️';
 
     if (el) {
       el.className = `sync-status-badge sync-${status}`;
