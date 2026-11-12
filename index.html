@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>DentTrack - Gestionale Igienista Dentale</title>
+  
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <meta name="theme-color" content="#0284c7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="DentTrack">
+  <link rel="manifest" href="./assets/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
+  <link rel="apple-touch-icon" href="./assets/icon.svg">
+
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+  <!-- Top Brand & Personalization Bar -->
+  <div class="top-brand-bar">
+    <div class="top-brand-container">
+      <div class="software-credit">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+        <span>Marchino software</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div id="sync-status-indicator" class="sync-status-badge sync-offline" title="Clicca per sincronizzare subito con il server" onclick="Storage.initServerSync()" style="cursor: pointer;">
+          <span>💾</span> <span>Memoria locale</span>
+        </div>
+        <div class="user-greeting">
+          <span>✨ Giulia buon lavoro! 🦷</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <img src="./assets/icon.svg" alt="DentTrack" width="38" height="38">
+        </div>
+        <div class="brand-text">
+          <h1>DentTrack</h1>
+          <p>Gestionale Igienista Dentale</p>
+        </div>
+      </div>
+
+      <!-- Desktop Navigation -->
+      <nav class="desktop-nav">
+        <a href="#calendar" class="nav-link active" data-tab-target="calendar">
+          <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          Calendario
+        </a>
+        <a href="#shifts" class="nav-link" data-tab-target="shifts">
+          <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          Turni &amp; Pazienti
+        </a>
+        <a href="#reports" class="nav-link" data-tab-target="reports">
+          <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Rendiconto &amp; Fatture
+        </a>
+        <a href="#clinics" class="nav-link" data-tab-target="clinics">
+          <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-4"></path><path d="M9 9v.01"></path><path d="M9 12v.01"></path><path d="M9 15v.01"></path><path d="M9 18v.01"></path></svg>
+          Studi Dentistici
+        </a>
+        <a href="#profile" class="nav-link" data-tab-target="profile">
+          <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Profilo &amp; Dati
+        </a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="ShiftsModule.openModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Nuovo Turno</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Bottom Bar -->
+  <nav class="mobile-nav">
+    <a href="#calendar" class="mobile-nav-item active" data-tab-target="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      <span>Calendario</span>
+    </a>
+    <a href="#shifts" class="mobile-nav-item" data-tab-target="shifts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      <span>Turni</span>
+    </a>
+    <a href="#reports" class="mobile-nav-item" data-tab-target="reports">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+      <span>Rendiconto</span>
+    </a>
+    <a href="#clinics" class="mobile-nav-item" data-tab-target="clinics">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-4"></path></svg>
+      <span>Studi</span>
+    </a>
+    <a href="#profile" class="mobile-nav-item" data-tab-target="profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      <span>Profilo</span>
+    </a>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="main-content">
+
+    <!-- First Time Welcome Banner (Shown only if no clinics exist) -->
+    <div id="first-time-banner" class="welcome-banner" style="display: none;">
+      <div class="welcome-banner-text">
+        <h2>👋 Benvenuta in DentTrack!</h2>
+        <p>Il gestionale pensato per igienisti dentali: tieni traccia delle ore negli studi, dei pazienti eseguiti e genera rendiconti automatici per le fatture.</p>
+      </div>
+      <div class="welcome-banner-btns">
+        <button id="btn-banner-load-demo" class="btn btn-white">
+          ✨ Carica Dati di Esempio
+        </button>
+        <button class="btn btn-secondary" onclick="ClinicsModule.openModal()">
+          + Inizia da Zero
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 1: CALENDARIO -->
+    <section id="tab-calendar" class="tab-content-section active">
+      <div class="calendar-card">
+        <div class="calendar-top-bar">
+          <div class="calendar-nav">
+            <button id="cal-btn-prev" class="btn-icon" title="Mese precedente">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <h2 id="cal-month-title" class="calendar-month-title">Mese</h2>
+            <button id="cal-btn-next" class="btn-icon" title="Mese successivo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+            <button id="cal-btn-today" class="btn btn-secondary btn-sm" style="margin-left: 8px;">Oggi</button>
+          </div>
+          <div class="calendar-filters">
+            <select id="cal-filter-clinic" class="form-control" style="width: auto; min-width: 170px;">
+              <option value="">Tutti gli studi</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="cal-grid">
+          <!-- Calendar grid rendered by calendar.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: TURNI & PAZIENTI -->
+    <section id="tab-shifts" class="tab-content-section">
+      <div class="section-header">
+        <div>
+          <h2>Elenco Turni Lavorati</h2>
+          <p class="section-subtitle">Visualizza, cerca e gestisci le tue presenze nei diversi studi dentistici</p>
+        </div>
+        <div class="section-header-actions">
+          <select id="shift-filter-month" class="form-control" style="width: auto;">
+            <option value="">Tutti i mesi</option>
+          </select>
+          <select id="shift-filter-clinic" class="form-control" style="width: auto;">
+            <option value="">Tutti gli studi</option>
+          </select>
+          <button class="btn btn-primary" onclick="ShiftsModule.openModal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Nuovo Turno
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Studio Dentistico</th>
+                <th>Orario &amp; Ore</th>
+                <th>Pazienti Trattati</th>
+                <th>Compenso</th>
+                <th>Stato</th>
+                <th class="text-right">Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="shifts-list-table-body">
+              <!-- Rendered by shifts.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: STUDI DENTISTICI -->
+    <section id="tab-clinics" class="tab-content-section">
+      <div class="section-header">
+        <div>
+          <h2>I Tuoi Studi Dentistici</h2>
+          <p class="section-subtitle">Configura le tariffe, le percentuali e gli accordi con ciascuno studio</p>
+        </div>
+        <button id="btn-new-clinic" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Aggiungi Studio
+        </button>
+      </div>
+
+      <div id="clinics-list" class="clinics-grid">
+        <!-- Rendered by clinics.js -->
+      </div>
+    </section>
+
+    <!-- TAB 4: RENDICONTO & FATTURE -->
+    <section id="tab-reports" class="tab-content-section">
+      <div class="section-header">
+        <div>
+          <h2>Rendiconto &amp; Pro-Forma</h2>
+          <p class="section-subtitle">Riepilogo delle ore, pazienti e compensi maturati per la fatturazione</p>
+        </div>
+        <div class="section-header-actions">
+          <select id="report-month-select" class="form-control" style="width: auto; font-weight: 600;">
+            <!-- Populated by reports.js -->
+          </select>
+          <select id="report-clinic-select" class="form-control" style="width: auto;">
+            <!-- Populated by reports.js -->
+          </select>
+          <button id="btn-export-excel" class="btn btn-secondary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Excel (CSV)
+          </button>
+          <button id="btn-print-report" class="btn btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Stampa / PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="kpi-cards-grid">
+        <div class="kpi-card kpi-card-highlight">
+          <div class="kpi-label">Totale Compensi</div>
+          <div id="kpi-total-earnings" class="kpi-value">0,00 €</div>
+          <div class="kpi-sub">Importo totale maturato</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Ore Lavorate</div>
+          <div id="kpi-total-hours" class="kpi-value">0,0 h</div>
+          <div class="kpi-sub">Ore totali nette</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Pazienti Trattati</div>
+          <div id="kpi-total-patients" class="kpi-value">0 pz</div>
+          <div class="kpi-sub">Sedute realmente eseguite</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Turni / Giornate</div>
+          <div id="kpi-total-shifts" class="kpi-value">0 turni</div>
+          <div class="kpi-sub">Presenze effettuate</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Media Oraria</div>
+          <div id="kpi-avg-hourly" class="kpi-value">0,00 €/h</div>
+          <div class="kpi-sub">Rendimento medio orario</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Ritmo Pazienti</div>
+          <div id="kpi-avg-pax-hour" class="kpi-value">0,0 pz/h</div>
+          <div class="kpi-sub">Media pazienti all'ora</div>
+        </div>
+      </div>
+
+      <!-- CALCOLO NETTO & SALVADANAIO TASSE -->
+      <div class="tax-calculator-card card">
+        <div class="tax-card-header">
+          <div class="tax-card-title-group">
+            <span class="tax-badge-icon">🏦</span>
+            <div>
+              <h3>Calcolo Netto Reale &amp; Salvadanaio Tasse</h3>
+              <p class="section-subtitle">Stima in tempo reale di quanto mettere da parte per imposte e contributi previdenziali (INPS) in base al lavorato</p>
+            </div>
+          </div>
+          <div class="tax-regime-picker">
+            <label for="tax-regime-select" class="form-label" style="margin-bottom: 2px;">Regime Fiscale:</label>
+            <select id="tax-regime-select" class="form-control" style="font-weight: 600; width: auto; min-width: 250px;">
+              <option value="forfettario_5">Forfettario 5% (Nuova Partita IVA - Start-up)</option>
+              <option value="forfettario_15" selected>Forfettario 15% (Standard Ordinario)</option>
+              <option value="custom_25">Accantonamento Prudenziale: 25%</option>
+              <option value="custom_30">Accantonamento Prudenziale: 30%</option>
+              <option value="custom_free">Aliquota Personalizzata...</option>
+            </select>
+            <div id="custom-tax-input-wrap" style="display: none; align-items: center; gap: 6px; margin-top: 6px;">
+              <span class="text-sm">Aliquota:</span>
+              <input type="number" id="custom-tax-rate-input" class="form-control" style="width: 80px; padding: 4px 8px;" value="28" min="0" max="70" step="0.5">
+              <span class="text-sm">%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 Big Metric Columns: Lordo, Da Accantonare, Netto Pulito -->
+        <div class="tax-columns-grid">
+          <div class="tax-col-box tax-col-gross">
+            <span class="tax-col-lbl">Fatturato Lordo Maturato</span>
+            <div id="tax-val-gross" class="tax-col-amount">0,00 €</div>
+            <span class="tax-col-desc">Compensi totali da incassare</span>
+          </div>
+
+          <div class="tax-col-box tax-col-reserve">
+            <span class="tax-col-lbl">🔒 Da Accantonare (Tasse &amp; INPS)</span>
+            <div id="tax-val-reserve" class="tax-col-amount text-danger">- 0,00 €</div>
+            <span id="tax-pct-reserve" class="tax-col-desc">Accantonamento stimato (28.9%)</span>
+          </div>
+
+          <div class="tax-col-box tax-col-net">
+            <span class="tax-col-lbl">💰 Guadagno Netto Disponibile</span>
+            <div id="tax-val-net" class="tax-col-amount text-success">0,00 €</div>
+            <span id="tax-pct-net" class="tax-col-desc">I soldi realmente tuoi in tasca (71.1%)</span>
+          </div>
+        </div>
+
+        <!-- Visual Distribution Bar -->
+        <div class="tax-progress-container">
+          <div class="tax-progress-bar">
+            <div id="tax-bar-net" class="tax-bar-part tax-bar-net" style="width: 71%;" title="Netto"></div>
+            <div id="tax-bar-reserve" class="tax-bar-part tax-bar-reserve" style="width: 29%;" title="Tasse & Contributi"></div>
+          </div>
+          <div class="tax-bar-legend">
+            <div class="tax-legend-item"><span class="legend-dot bg-success"></span> Netto reale: <strong id="legend-net-val">0,00 €</strong></div>
+            <div class="tax-legend-item"><span class="legend-dot bg-danger"></span> Tasse &amp; INPS: <strong id="legend-reserve-val">0,00 €</strong></div>
+          </div>
+        </div>
+
+        <!-- Detailed Tax Breakdown Pills -->
+        <div class="tax-breakdown-details">
+          <div class="tax-detail-pill">
+            <span class="label">Contributi Previdenziali (INPS Gestione Separata ~26% sul 78%):</span>
+            <strong id="tax-breakdown-inps">~0,00 €</strong>
+          </div>
+          <div class="tax-detail-pill">
+            <span class="label">Imposta Sostitutiva Fiscale:</span>
+            <strong id="tax-breakdown-taxes">~0,00 €</strong>
+          </div>
+        </div>
+
+        <!-- Practical Advice Tip -->
+        <div class="tax-tip-box">
+          <div class="tip-icon">💡</div>
+          <div class="tip-content">
+            <strong>Consiglio Pratico per Giulia:</strong>
+            <p id="tax-tip-message">
+              Versa subito la quota di <strong><span id="tax-tip-reserve-amount">0,00 €</span></strong> su un conto corrente o salvadanaio separato ("Conto Tasse"). Quando il commercialista ti preparerà gli F24 per saldo e acconti a Giugno e Novembre, avrai già tutta la liquidità pronta senza intaccare il tuo stipendio netto!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breakdown by Clinic -->
+      <h3 style="margin-bottom: 12px; font-size: 1.1rem;">Ripartizione per Studio</h3>
+      <div id="report-clinic-breakdown" class="clinics-grid" style="margin-bottom: 24px;">
+        <!-- Rendered by reports.js -->
+      </div>
+
+      <!-- Detailed Accounting Table -->
+      <div id="report-detailed-table-container" class="card" style="padding: 0; overflow: hidden; margin-bottom: 24px;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-main);">
+          <h3 style="font-size: 1rem; font-weight: 700;">Dettaglio Giornaliero Turni &amp; Trattamenti</h3>
+        </div>
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Studio</th>
+                <th>Orario</th>
+                <th>Pazienti &amp; Prestazioni</th>
+                <th>Tariffazione</th>
+                <th class="text-right">Lordo</th>
+                <th class="text-right">Netto Stimato</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="report-table-body">
+              <!-- Rendered by reports.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Professional Printable Document Card (Intestazione fattura) -->
+      <div class="printable-document-card" id="printable-invoice-document">
+        <!-- Rendered by reports.js -->
+      </div>
+    </section>
+
+    <!-- TAB 5: PROFILO & BACKUP -->
+    <section id="tab-profile" class="tab-content-section">
+      <div class="section-header">
+        <div>
+          <h2>Profilo Professionale &amp; Salvataggio</h2>
+          <p class="section-subtitle">Gestisci i tuoi dati fiscali per i rendiconti e salva copie di sicurezza</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+        <!-- Profile Form -->
+        <div class="card">
+          <h3 style="margin-bottom: 16px; font-size: 1.1rem;">I tuoi dati per il Rendiconto / Pro-Forma</h3>
+          <form id="form-profile" style="display: flex; flex-direction: column; gap: 14px;">
+            <div class="form-group">
+              <label class="form-label">Nome e Cognome</label>
+              <input type="text" id="prof-name" class="form-control" placeholder="es. Dott.ssa Giulia Ferri" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Titolo Professionale</label>
+              <input type="text" id="prof-title" class="form-control" placeholder="es. Igienista Dentale - Iscritta all'Albo">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Partita IVA</label>
+                <input type="text" id="prof-piva" class="form-control" placeholder="es. 12345678901">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Codice Fiscale</label>
+                <input type="text" id="prof-cf" class="form-control" placeholder="es. FRRGLI...">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Telefono</label>
+                <input type="text" id="prof-phone" class="form-control" placeholder="es. 347 1234567">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" id="prof-email" class="form-control" placeholder="es. giulia.igienista@email.it">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">IBAN (per accredito compensi)</label>
+              <input type="text" id="prof-iban" class="form-control" placeholder="es. IT60X0542811101000000123456">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Città / Indirizzo</label>
+              <input type="text" id="prof-address" class="form-control" placeholder="es. Milano (MI)">
+            </div>
+            
+            <!-- Default Tax Settings -->
+            <div style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 4px;">
+              <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 6px;">⚙️ Impostazioni Tasse Predefinite</h4>
+              <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">Imposta il tuo regime abituale per il calcolo automatico del netto e delle tasse da accantonare.</p>
+              
+              <div class="form-group" style="margin-bottom: 10px;">
+                <label class="form-label">Regime Fiscale Predefinito</label>
+                <select id="prof-tax-regime" class="form-control">
+                  <option value="forfettario_5">Forfettario 5% (Nuova Partita IVA - Primi 5 anni)</option>
+                  <option value="forfettario_15" selected>Forfettario 15% (Standard Ordinario)</option>
+                  <option value="custom_25">Accantonamento Prudenziale Fisso (25%)</option>
+                  <option value="custom_30">Accantonamento Prudenziale Fisso (30%)</option>
+                  <option value="custom_free">Aliquota Personalizzata...</option>
+                </select>
+              </div>
+
+              <div id="prof-custom-tax-wrap" class="form-group" style="display: none;">
+                <label class="form-label">Aliquota Personalizzata da accantonare (%)</label>
+                <input type="number" id="prof-custom-tax-rate" class="form-control" value="28" min="0" max="70" step="0.5">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 8px;">
+              💾 Salva Dati Profilo
+            </button>
+          </form>
+        </div>
+
+        <!-- Backup, Restore & Mobile Access -->
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <!-- Central Server Sync Card -->
+          <div class="card" style="border-left: 4px solid var(--secondary);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <h3 style="font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                <span>📡</span> Sincronizzazione Centralizzata
+              </h3>
+              <span id="profile-sync-badge" class="sync-status-badge sync-offline">💾 Memoria locale</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+              Se il server è attivo (su Raspberry Pi o tramite <code>Avvia_Gestionale.bat</code> sul PC), i dati inseriti dal telefono e dal computer si sincronizzano automaticamente in tempo reale.
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="Storage.initServerSync()" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                Sincronizza Ora con il Server
+              </button>
+            </div>
+          </div>
+
+          <!-- Data Backup Card -->
+          <div class="card">
+            <h3 style="margin-bottom: 12px; font-size: 1.1rem;">Sicurezza &amp; Backup dei Dati</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+              I tuoi dati sono sempre salvati nella memoria del browser. Puoi scaricare un file di backup in qualsiasi momento per conservarlo o trasferirlo su un altro dispositivo (smartphone, tablet o PC).
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <button id="btn-export-backup" class="btn btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Scarica File di Backup (.json)
+              </button>
+              <input type="file" id="file-input-backup" accept=".json" style="display: none;">
+              <button id="btn-trigger-import" class="btn btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Ripristina da File di Backup
+              </button>
+            </div>
+          </div>
+
+          <!-- Demo & Reset Card -->
+          <div class="card">
+            <h3 style="margin-bottom: 12px; font-size: 1.1rem;">Strumenti Dati</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <button id="btn-load-demo-data" class="btn btn-secondary">
+                ✨ Carica Dati di Esempio (3 Studi + 7 Turni)
+              </button>
+              <button id="btn-reset-data" class="btn btn-danger btn-sm" style="align-self: flex-start; margin-top: 8px;">
+                ⚠️ Cancella Tutti i Dati
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: NUOVO / MODIFICA TURNO -->
+  <div id="modal-shift" class="modal-overlay">
+    <div class="modal-box" style="max-width: 780px;">
+      <div class="modal-header">
+        <h3 id="modal-shift-title">Turno / Presenza</h3>
+        <button class="btn-icon" data-close-modal title="Chiudi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="form-shift">
+        <div class="modal-body">
+          <input type="hidden" id="shift-id">
+
+          <!-- Row 1: Studio e Data -->
+          <div class="form-row">
+            <div class="form-group" style="flex: 2;">
+              <label class="form-label">Studio Dentistico *</label>
+              <select id="shift-clinic-id" class="form-control" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1.5;">
+              <label class="form-label">Data *</label>
+              <input type="date" id="shift-date" class="form-control" required>
+            </div>
+            <div class="form-group" style="flex: 1.2;">
+              <label class="form-label">Stato</label>
+              <select id="shift-status" class="form-control">
+                <option value="completed">Svolto</option>
+                <option value="scheduled">Programmato</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Row 2: Orari e Durata -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Ora Inizio</label>
+              <input type="time" id="shift-start-time" class="form-control" value="08:30" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ora Fine</label>
+              <input type="time" id="shift-end-time" class="form-control" value="13:30" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pausa (minuti)</label>
+              <input type="number" id="shift-break-mins" class="form-control" value="0" min="0" step="5">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ore Lavorate Nette</label>
+              <div id="shift-hours-display" class="form-control" style="background-color: var(--bg-main); font-weight: 700; color: var(--primary);">
+                5.00 h
+              </div>
+            </div>
+          </div>
+
+          <!-- Mode Switcher: Quick vs Detailed -->
+          <div>
+            <label class="form-label" style="margin-bottom: 6px; display: block;">Modalità Registrazione Pazienti</label>
+            <div class="mode-switch-container">
+              <label class="mode-radio-label">
+                <input type="radio" name="shift-mode-select" id="mode-quick" checked>
+                ⚡ Conteggio Rapido (Consigliato per tariffa oraria/fissa)
+              </label>
+              <label class="mode-radio-label">
+                <input type="radio" name="shift-mode-select" id="mode-detailed">
+                📋 Dettaglio per Paziente (Trattamenti &amp; Percentuali)
+              </label>
+            </div>
+          </div>
+
+          <!-- Section A: Quick Mode -->
+          <div id="section-quick-mode">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Pazienti Previsti in agenda</label>
+                <input type="number" id="shift-quick-planned" class="form-control" value="8" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Pazienti Realmente Fatti *</label>
+                <input type="number" id="shift-quick-done" class="form-control" value="7" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Disdette / No-Show</label>
+                <input type="number" id="shift-quick-cancelled" class="form-control" value="1" min="0">
+              </div>
+            </div>
+          </div>
+
+          <!-- Section B: Detailed Mode -->
+          <div id="section-detailed-mode" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 0.85rem; font-weight: 600;">Singoli Pazienti e Trattamenti Eseguiti:</span>
+              <button type="button" id="btn-add-patient-row" class="btn btn-secondary btn-sm">
+                + Aggiungi Paziente
+              </button>
+            </div>
+            <div id="detailed-patients-container">
+              <!-- Rendered by shifts.js -->
+            </div>
+          </div>
+
+          <!-- Compensation Calculation Box -->
+          <div class="calc-banner">
+            <div id="comp-calc-info" style="margin-bottom: 4px;">Calcolo compenso automatico in base alle regole dello studio</div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+              <label style="font-weight: 600; font-size: 0.85rem;">Totale Compenso Turno (€):</label>
+              <input type="number" step="0.5" id="shift-calculated-earnings" class="form-control" style="max-width: 130px; font-weight: 700;">
+              <span class="text-sm text-muted">(modificabile manualmente se necessario)</span>
+            </div>
+            <div id="shift-net-preview" style="font-size: 0.82rem; margin-top: 8px; color: #065f46; font-weight: 600; background-color: #ecfdf5; padding: 4px 8px; border-radius: 4px; border: 1px solid #a7f3d0; display: inline-block;">
+              Stima Netto in tasca: ~0,00 € • Da accantonare per tasse &amp; INPS: ~0,00 €
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label">Note sul turno</label>
+            <textarea id="shift-notes" class="form-control" placeholder="es. Riunito 2 in manutenzione mezz'ora, richiamati 3 recall..."></textarea>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal>Annulla</button>
+          <button type="submit" class="btn btn-primary">Salva Turno</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: NUOVO / MODIFICA STUDIO -->
+  <div id="modal-clinic" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-clinic-title">Studio Dentistico</h3>
+        <button class="btn-icon" data-close-modal title="Chiudi">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="form-clinic">
+        <div class="modal-body">
+          <input type="hidden" id="clinic-id">
+
+          <div class="form-group">
+            <label class="form-label">Nome dello Studio Dentistico *</label>
+            <input type="text" id="clinic-name" class="form-control" placeholder="es. Studio Dentistico Dott. Rossi" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Dottore Referente</label>
+              <input type="text" id="clinic-doctor" class="form-control" placeholder="es. Dott. Alberto Rossi">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Indirizzo</label>
+              <input type="text" id="clinic-address" class="form-control" placeholder="es. Via Roma 10, Milano">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Telefono Studio</label>
+              <input type="text" id="clinic-phone" class="form-control" placeholder="es. 02 1234567">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Studio / Amministrazione</label>
+              <input type="email" id="clinic-email" class="form-control" placeholder="es. segreteria@studiorossi.it">
+            </div>
+          </div>
+
+          <!-- Color Swatch -->
+          <div class="form-group">
+            <label class="form-label">Colore Identificativo (per il Calendario)</label>
+            <input type="hidden" id="clinic-color" value="#0284c7">
+            <div id="clinic-color-picker" class="color-picker-grid">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Compensation Formula -->
+          <div class="form-group">
+            <label class="form-label">Formula di Compenso con questo Studio *</label>
+            <select id="clinic-comp-model" class="form-control">
+              <option value="hourly">Tariffa Oraria (€ all'ora lavorata)</option>
+              <option value="per_patient">Quota Fissa a Paziente Trattato (€ a seduta)</option>
+              <option value="percentage">Percentuale sul Valore Prestazione (% incasso)</option>
+              <option value="fixed_shift">Fisso a Turno / Giornata (€ a presenza)</option>
+            </select>
+          </div>
+
+          <div id="comp-group-hourly" class="form-group">
+            <label class="form-label">Compenso Orario (€/ora)</label>
+            <input type="number" step="0.5" id="clinic-hourly-rate" class="form-control" placeholder="es. 35.00">
+            <span class="form-hint">Esempio: 5 ore lavorate = 175,00 €</span>
+          </div>
+
+          <div id="comp-group-patient" class="form-group" style="display: none;">
+            <label class="form-label">Quota per Paziente Trattato (€/paziente)</label>
+            <input type="number" step="0.5" id="clinic-patient-rate" class="form-control" placeholder="es. 30.00">
+            <span class="form-hint">Esempio: 7 pazienti fatti = 210,00 €</span>
+          </div>
+
+          <div id="comp-group-percentage" class="form-group" style="display: none;">
+            <label class="form-label">Percentuale Spettante all'Igienista (%)</label>
+            <input type="number" step="1" id="clinic-percentage-rate" class="form-control" placeholder="es. 40 o 45">
+            <span class="form-hint">Esempio: 45% su un'igiene da 80€ = 36,00 €</span>
+          </div>
+
+          <div id="comp-group-shift" class="form-group" style="display: none;">
+            <label class="form-label">Quota Fissa a Turno (€)</label>
+            <input type="number" step="0.5" id="clinic-shift-rate" class="form-control" placeholder="es. 150.00">
+            <span class="form-hint">Compenso fisso per ogni mezza giornata o turno</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Note / Accordi di collaborazione</label>
+            <textarea id="clinic-notes" class="form-control" placeholder="es. Turno martedì mattina. Pagamento bonifico entro fine mese successivo."></textarea>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal>Annulla</button>
+          <button type="submit" class="btn btn-primary">Salva Studio</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script src="./js/storage.js"></script>
+  <script src="./js/clinics.js"></script>
+  <script src="./js/shifts.js"></script>
+  <script src="./js/calendar.js"></script>
+  <script src="./js/reports.js"></script>
+  <script src="./js/export.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>

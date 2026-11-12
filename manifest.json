@@ -1,0 +1,17 @@
+{
+  "name": "DentTrack - Gestionale Igienista Dentale",
+  "short_name": "DentTrack",
+  "description": "Gestionale turni, pazienti e compensi per igienisti dentali",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
