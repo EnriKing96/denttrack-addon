@@ -200,12 +200,25 @@ const Storage = {
 
   // --- Export & Import ---
   exportBackup() {
+    let syncConflict = null;
+
+    try {
+      const rawConflict = localStorage.getItem(this.syncConflictKey);
+      if (rawConflict) {
+        syncConflict = JSON.parse(rawConflict);
+      }
+    } catch (e) {
+      console.warn('Errore lettura backup conflitto:', e);
+    }
+
     const backupData = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
       profile: this.getProfile(),
       clinics: this.getClinics(),
-      shifts: this.getShifts()
+      shifts: this.getShifts(),
+      syncConflict
+    };
     };
     const jsonStr = JSON.stringify(backupData, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -458,9 +471,6 @@ const Storage = {
     this.saveShifts(sampleShifts);
   },
 
-  // ==========================================
-  // --- Central Server Synchronization ---
-  // ==========================================
   // ==========================================
   // --- Central Server Synchronization ---
   // ==========================================
