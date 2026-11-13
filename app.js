@@ -252,6 +252,9 @@ const App = {
   }
 };
 
+// Rende App accessibile anche a Storage.js
+window.App = App;
+
 // Start the app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   App.init();
