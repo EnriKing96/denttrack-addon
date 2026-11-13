@@ -872,7 +872,173 @@ const Storage = {
 
     }, 5000);
   },
+  async mergeSyncConflict() {
+    const rawConflict = localStorage.getItem(this.syncConflictKey);
 
+    if (!rawConflict) {
+      return { success: false, error: 'Nessun conflitto da risolvere.' };
+    }
+
+    try {
+      const conflict = JSON.parse(rawConflict);
+
+      const local = conflict.local;
+      const remote = conflict.remote?.current_data ||
+                     conflict.remote?.data ||
+                     conflict.remote;
+
+      if (!local || !remote) {
+        throw new Error('Dati locali o remoti mancanti.');
+      }
+
+      const canonical = (value) => {
+        if (Array.isArray(value)) {
+          return value.map(canonical);
+        }
+
+        if (value && typeof value === 'object') {
+          return Object.keys(value).sort().reduce((result, key) => {
+            result[key] = canonical(value[key]);
+            return result;
+          }, {});
+        }
+
+        return value;
+      };
+
+      const areEqual = (a, b) => {
+        return JSON.stringify(canonical(a)) ===
+               JSON.stringify(canonical(b));
+      };
+
+      const mergeById = (localItems, remoteItems, label) => {
+        if (!Array.isArray(localItems) || !Array.isArray(remoteItems)) {
+          throw new Error(`Elenco ${label} non valido.`);
+        }
+
+        const merged = new Map();
+
+        for (const item of localItems) {
+          if (!item || !item.id) {
+            throw new Error(`Elemento senza ID in ${label}.`);
+          }
+
+          merged.set(item.id, item);
+        }
+
+        for (const item of remoteItems) {
+          if (!item || !item.id) {
+            throw new Error(`Elemento remoto senza ID in ${label}.`);
+          }
+
+          if (merged.has(item.id)) {
+            if (!areEqual(merged.get(item.id), item)) {
+              throw new Error(
+                `Modifiche differenti sullo stesso elemento di ${label}: ${item.id}. Merge interrotto per sicurezza.`
+              );
+            }
+          } else {
+            merged.set(item.id, item);
+          }
+        }
+
+        return Array.from(merged.values());
+      };
+
+      if (!areEqual(local.profile, remote.profile)) {
+        throw new Error(
+          'Il profilo è stato modificato diversamente sui due dispositivi. Merge interrotto.'
+        );
+      }
+
+      const mergedClinics = mergeById(
+        local.clinics,
+        remote.clinics,
+        'cliniche'
+      );
+
+      const mergedShifts = mergeById(
+        local.shifts,
+        remote.shifts,
+        'turni'
+      );
+
+      const remoteRevision = Number(
+        conflict.remoteRevision ??
+        conflict.remote?._syncRevision
+      );
+
+      if (!Number.isInteger(remoteRevision) || remoteRevision < 0) {
+        throw new Error('Revisione remota non valida.');
+      }
+
+      // Salviamo i dati uniti senza attivare sync automatiche intermedie.
+      localStorage.setItem(
+        STORAGE_KEYS.PROFILE,
+        JSON.stringify(local.profile)
+      );
+
+      localStorage.setItem(
+        STORAGE_KEYS.CLINICS,
+        JSON.stringify(mergedClinics)
+      );
+
+      localStorage.setItem(
+        STORAGE_KEYS.SHIFTS,
+        JSON.stringify(mergedShifts)
+      );
+
+      // Il server è alla revisione remota da cui parte il merge.
+      this.setServerRevision(remoteRevision);
+      this.setPendingChanges(true);
+
+      // Il conflitto viene rimosso solo dopo aver costruito il merge.
+      localStorage.removeItem(this.syncConflictKey);
+
+      if (window.App && typeof App.refreshAll === 'function') {
+        App.refreshAll();
+      }
+
+      this.updateSyncUI('syncing', 'Invio merge...');
+
+      await this.syncToServer();
+
+      if (this.hasSyncConflict()) {
+        return {
+          success: false,
+          error: 'È stato rilevato un nuovo conflitto durante il salvataggio.'
+        };
+      }
+
+      if (this.hasPendingChanges()) {
+        return {
+          success: false,
+          error: 'Merge preparato, ma sincronizzazione non ancora completata.',
+          countShifts: mergedShifts.length
+        };
+      }
+
+      return {
+        success: true,
+        countClinics: mergedClinics.length,
+        countShifts: mergedShifts.length
+      };
+
+    } catch (error) {
+      console.error('DentTrack: merge non riuscito:', error);
+
+      this.updateSyncUI(
+        'conflict',
+        'Conflitto — dati conservati'
+      );
+
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
+  
   formatTime(date) {
     if (!date) return '';
 
