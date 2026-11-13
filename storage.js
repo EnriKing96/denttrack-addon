@@ -219,7 +219,6 @@ const Storage = {
       shifts: this.getShifts(),
       syncConflict
     };
-    };
     const jsonStr = JSON.stringify(backupData, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
