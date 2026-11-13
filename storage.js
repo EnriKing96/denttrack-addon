@@ -696,121 +696,158 @@ const Storage = {
     }, 500);
   },
 
-  async syncToServer() {
-    if (!window.location.protocol.startsWith('http')) return;
-    if (this.isSyncing) return;
-    if (!this.hasPendingChanges()) return;
+async syncToServer(options = {}) {
+  if (!window.location.protocol.startsWith('http')) return;
+  if (this.isSyncing) return;
+  if (!this.hasPendingChanges()) return;
 
-    if (this.hasSyncConflict()) {
-      this.updateSyncUI('conflict', 'Conflitto — dati conservati');
-      return;
-    }
+  const allowConflict = options.allowConflict === true;
 
-    this.isSyncing = true;
+  if (this.hasSyncConflict() && !allowConflict) {
+    this.updateSyncUI('conflict', 'Conflitto — dati conservati');
+    return;
+  }
 
-    this.updateSyncUI('syncing', 'Sincronizzazione...');
+  this.isSyncing = true;
+  this.updateSyncUI('syncing', 'Verifica versione server...');
 
-    const revisionAtStart = this.syncLocalRevision;
+  const revisionAtStart = this.syncLocalRevision;
 
-    const payload = {
-      baseRevision: this.getServerRevision(),
-      data: this.getLocalSnapshot()
-    };
+  const payload = {
+    baseRevision: this.getServerRevision(),
+    data: this.getLocalSnapshot()
+  };
 
-    try {
-      const response = await fetch(this.getApiUrl(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8'
-        },
-        cache: 'no-store',
-        body: JSON.stringify(payload)
-      });
+  try {
+    // 1. Verifica preventiva della versione sul server.
+    const serverData = await this.fetchServerSnapshot();
 
-      const result = await response.json();
+    const remoteRevision = Number.isInteger(serverData._syncRevision)
+      ? serverData._syncRevision
+      : 0;
 
-      if (response.status === 409) {
-        localStorage.setItem(
-          this.syncConflictKey,
-          JSON.stringify({
-            detectedAt: new Date().toISOString(),
-            local: payload.data,
-            remote: result,
-            localBaseRevision: payload.baseRevision,
-            remoteRevision: result._syncRevision
-          })
-        );
+    // 2. Se le revisioni sono diverse, non inviamo nulla.
+    if (remoteRevision !== payload.baseRevision) {
 
-        this.isServerConnected = true;
-
-        this.updateSyncUI(
-          'conflict',
-          'Conflitto — dati conservati'
-        );
-
-        console.warn(
-          'DentTrack: conflitto di sincronizzazione. ' +
-          'Le copie locali e remote sono state conservate.'
-        );
-
-        return;
-      }
-
-      if (response.status === 428) {
-        throw new Error(result.error || 'Server da aggiornare');
-      }
-
-      if (!response.ok || result.success !== true) {
-        throw new Error(result.error || ('HTTP ' + response.status));
-      }
+      localStorage.setItem(
+        this.syncConflictKey,
+        JSON.stringify({
+          detectedAt: new Date().toISOString(),
+          local: payload.data,
+          remote: {
+            current_data: serverData,
+            _syncRevision: remoteRevision
+          },
+          localBaseRevision: payload.baseRevision,
+          remoteRevision
+        })
+      );
 
       this.isServerConnected = true;
 
-      this.setServerRevision(result.revision);
-
-      this.lastSyncTime = new Date();
-
-      // Se nel frattempo sono state salvate altre modifiche,
-      // non cancelliamo la coda: invieremo anche quelle.
-      if (revisionAtStart === this.syncLocalRevision) {
-        this.setPendingChanges(false);
-        this.updateSyncUI('online', 'Online');
-      } else {
-        this.setPendingChanges(true);
-        this.updateSyncUI('syncing', 'Altri dati da salvare...');
-      }
-
-    } catch (error) {
-      console.warn(
-        'DentTrack: sincronizzazione non riuscita:',
-        error
+      this.updateSyncUI(
+        'conflict',
+        'Conflitto — dati conservati'
       );
 
-      this.isServerConnected = false;
+      console.warn(
+        'DentTrack: revisione server diversa. ' +
+        'Invio bloccato per sicurezza.'
+      );
+
+      return;
+    }
+
+    // 3. Le revisioni coincidono: possiamo inviare.
+    this.updateSyncUI('syncing', 'Sincronizzazione...');
+
+    const response = await fetch(this.getApiUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      },
+      cache: 'no-store',
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    // 4. Il server mantiene comunque il controllo definitivo.
+    if (response.status === 409) {
+
+      localStorage.setItem(
+        this.syncConflictKey,
+        JSON.stringify({
+          detectedAt: new Date().toISOString(),
+          local: payload.data,
+          remote: result,
+          localBaseRevision: payload.baseRevision,
+          remoteRevision: result._syncRevision
+        })
+      );
+
+      this.isServerConnected = true;
 
       this.updateSyncUI(
-        'offline',
-        'Offline — modifiche in coda'
+        'conflict',
+        'Conflitto — dati conservati'
       );
 
-    } finally {
-      this.isSyncing = false;
-
-      // Se sono arrivate modifiche durante l'invio,
-      // programmiamo una nuova sincronizzazione.
-      if (
-        this.hasPendingChanges() &&
-        !this.hasSyncConflict() &&
-        navigator.onLine
-      ) {
-        clearTimeout(this.syncDebounceTimer);
-
-        this.syncDebounceTimer = setTimeout(() => {
-          this.syncToServer();
-        }, 500);
-      }
+      return;
     }
-  },
+
+    if (response.status === 428) {
+      throw new Error(result.error || 'Server da aggiornare');
+    }
+
+    if (!response.ok || result.success !== true) {
+      throw new Error(result.error || ('HTTP ' + response.status));
+    }
+
+    // 5. Sincronizzazione completata.
+    this.isServerConnected = true;
+    this.setServerRevision(result.revision);
+    this.lastSyncTime = new Date();
+
+    if (revisionAtStart === this.syncLocalRevision) {
+      this.setPendingChanges(false);
+      this.updateSyncUI('online', 'Online');
+    } else {
+      this.setPendingChanges(true);
+      this.updateSyncUI('syncing', 'Altri dati da salvare...');
+    }
+
+  } catch (error) {
+
+    console.warn(
+      'DentTrack: sincronizzazione non riuscita:',
+      error
+    );
+
+    this.isServerConnected = false;
+
+    this.updateSyncUI(
+      'offline',
+      'Offline — modifiche in coda'
+    );
+
+  } finally {
+
+    this.isSyncing = false;
+
+    if (
+      this.hasPendingChanges() &&
+      !this.hasSyncConflict() &&
+      navigator.onLine
+    ) {
+      clearTimeout(this.syncDebounceTimer);
+
+      this.syncDebounceTimer = setTimeout(() => {
+        this.syncToServer();
+      }, 500);
+    }
+  }
+},
 
   startServerPolling() {
     if (this.syncPollTimer) return;
