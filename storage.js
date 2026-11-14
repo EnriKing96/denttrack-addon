@@ -1034,14 +1034,6 @@ async mergeSyncConflict() {
     // Autorizziamo l'invio mantenendo il conflitto salvato.
     await this.syncToServer({ allowConflict: true });
 
-    // Se il server ha creato un nuovo conflitto, lo conserviamo.
-    if (this.hasSyncConflict()) {
-      return {
-        success: false,
-        error: 'Nuovo conflitto rilevato. Le copie sono state conservate.'
-      };
-    }
-
     // Se la sincronizzazione non è terminata, non cancelliamo nulla.
     if (this.hasPendingChanges()) {
       return {
