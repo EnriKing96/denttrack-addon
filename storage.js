@@ -601,16 +601,6 @@ const Storage = {
       return;
     }
 
-// Verifichiamo se il server ha creato un NUOVO conflitto.
-const currentConflict = localStorage.getItem(this.syncConflictKey);
-
-if (currentConflict && currentConflict !== rawConflict) {
-  return {
-    success: false,
-    error: 'Nuovo conflitto rilevato. Le copie sono state conservate.'
-  };
-}
-
     if (!this.syncListenersBound) {
       this.syncListenersBound = true;
 
