@@ -601,12 +601,15 @@ const Storage = {
       return;
     }
 
-    if (this.hasSyncConflict()) {
-      this.isServerConnected = true;
-      this.updateSyncUI('conflict', 'Conflitto — dati conservati');
-      this.startRetryLoop();
-      return;
-    }
+// Verifichiamo se il server ha creato un NUOVO conflitto.
+const currentConflict = localStorage.getItem(this.syncConflictKey);
+
+if (currentConflict && currentConflict !== rawConflict) {
+  return {
+    success: false,
+    error: 'Nuovo conflitto rilevato. Le copie sono state conservate.'
+  };
+}
 
     if (!this.syncListenersBound) {
       this.syncListenersBound = true;
