@@ -775,5 +775,18 @@
   <script src="./reports.js"></script>
   <script src="./export.js"></script>
   <script src="./app.js"></script>
+
+  <!-- Registrazione PWA Service Worker -->
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then(reg => console.log('DentTrack: Service Worker attivo', reg.scope))
+          .catch(err => console.error('DentTrack: errore Service Worker', err));
+      });
+    }
+  </script>
+  
 </body>
 </html>
